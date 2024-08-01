@@ -5,26 +5,37 @@ from torch.nn import init
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, activation='relu', norm=None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        activation="relu",
+        norm=None,
+    ):
         super(ConvLayer, self).__init__()
 
-        bias = False if norm == 'BN' else True
-        self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
+        bias = False if norm == "BN" else True
+        self.conv2d = nn.Conv2d(
+            in_channels, out_channels, kernel_size, stride, padding, bias=bias
+        )
         if activation is not None:
-            self.activation = getattr(torch, activation, 'relu')
+            self.activation = getattr(torch, activation, "relu")
         else:
             self.activation = None
 
         self.norm = norm
-        if norm == 'BN':
+        if norm == "BN":
             self.norm_layer = nn.BatchNorm2d(out_channels)
-        elif norm == 'IN':
+        elif norm == "IN":
             self.norm_layer = nn.InstanceNorm2d(out_channels, track_running_stats=True)
 
     def forward(self, x):
         out = self.conv2d(x)
 
-        if self.norm in ['BN', 'IN']:
+        if self.norm in ["BN", "IN"]:
             out = self.norm_layer(out)
 
         if self.activation is not None:
@@ -34,28 +45,44 @@ class ConvLayer(nn.Module):
 
 
 class TransposedConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, activation='relu', norm=None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        activation="relu",
+        norm=None,
+    ):
         super(TransposedConvLayer, self).__init__()
 
-        bias = False if norm == 'BN' else True
+        bias = False if norm == "BN" else True
         self.transposed_conv2d = nn.ConvTranspose2d(
-            in_channels, out_channels, kernel_size, stride=2, padding=padding, output_padding=1, bias=bias)
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=2,
+            padding=padding,
+            output_padding=1,
+            bias=bias,
+        )
 
         if activation is not None:
-            self.activation = getattr(torch, activation, 'relu')
+            self.activation = getattr(torch, activation, "relu")
         else:
             self.activation = None
 
         self.norm = norm
-        if norm == 'BN':
+        if norm == "BN":
             self.norm_layer = nn.BatchNorm2d(out_channels)
-        elif norm == 'IN':
+        elif norm == "IN":
             self.norm_layer = nn.InstanceNorm2d(out_channels, track_running_stats=True)
 
     def forward(self, x):
         out = self.transposed_conv2d(x)
 
-        if self.norm in ['BN', 'IN']:
+        if self.norm in ["BN", "IN"]:
             out = self.norm_layer(out)
 
         if self.activation is not None:
@@ -65,28 +92,41 @@ class TransposedConvLayer(nn.Module):
 
 
 class UpsampleConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, activation='relu', norm=None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        activation="relu",
+        norm=None,
+    ):
         super(UpsampleConvLayer, self).__init__()
 
-        bias = False if norm == 'BN' else True
-        self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
+        bias = False if norm == "BN" else True
+        self.conv2d = nn.Conv2d(
+            in_channels, out_channels, kernel_size, stride, padding, bias=bias
+        )
 
         if activation is not None:
-            self.activation = getattr(torch, activation, 'relu')
+            self.activation = getattr(torch, activation, "relu")
         else:
             self.activation = None
 
         self.norm = norm
-        if norm == 'BN':
+        if norm == "BN":
             self.norm_layer = nn.BatchNorm2d(out_channels)
-        elif norm == 'IN':
+        elif norm == "IN":
             self.norm_layer = nn.InstanceNorm2d(out_channels, track_running_stats=True)
 
     def forward(self, x):
-        x_upsampled = f.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+        x_upsampled = f.interpolate(
+            x, scale_factor=2, mode="bilinear", align_corners=False
+        )
         out = self.conv2d(x_upsampled)
 
-        if self.norm in ['BN', 'IN']:
+        if self.norm in ["BN", "IN"]:
             out = self.norm_layer(out)
 
         if self.activation is not None:
@@ -96,44 +136,67 @@ class UpsampleConvLayer(nn.Module):
 
 
 class RecurrentConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=0,
-                 recurrent_block_type='convlstm', activation='relu', norm=None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        padding=0,
+        recurrent_block_type="convlstm",
+        activation="relu",
+        norm=None,
+    ):
         super(RecurrentConvLayer, self).__init__()
 
-        assert(recurrent_block_type in ['convlstm', 'convgru'])
+        assert recurrent_block_type in ["convlstm", "convgru"]
         self.recurrent_block_type = recurrent_block_type
-        if self.recurrent_block_type == 'convlstm':
+        if self.recurrent_block_type == "convlstm":
             RecurrentBlock = ConvLSTM
         else:
             RecurrentBlock = ConvGRU
-        self.conv = ConvLayer(in_channels, out_channels, kernel_size, stride, padding, activation, norm)
-        self.recurrent_block = RecurrentBlock(input_size=out_channels, hidden_size=out_channels, kernel_size=3)
+        self.conv = ConvLayer(
+            in_channels, out_channels, kernel_size, stride, padding, activation, norm
+        )
+        self.recurrent_block = RecurrentBlock(
+            input_size=out_channels, hidden_size=out_channels, kernel_size=3
+        )
 
     def forward(self, x, prev_state):
         x = self.conv(x)
         state = self.recurrent_block(x, prev_state)
-        x = state[0] if self.recurrent_block_type == 'convlstm' else state
+        x = state[0] if self.recurrent_block_type == "convlstm" else state
         return x, state
 
 
 class DownsampleRecurrentConvLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, recurrent_block_type='convlstm', padding=0, activation='relu'):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        recurrent_block_type="convlstm",
+        padding=0,
+        activation="relu",
+    ):
         super(DownsampleRecurrentConvLayer, self).__init__()
 
-        self.activation = getattr(torch, activation, 'relu')
+        self.activation = getattr(torch, activation, "relu")
 
-        assert(recurrent_block_type in ['convlstm', 'convgru'])
+        assert recurrent_block_type in ["convlstm", "convgru"]
         self.recurrent_block_type = recurrent_block_type
-        if self.recurrent_block_type == 'convlstm':
+        if self.recurrent_block_type == "convlstm":
             RecurrentBlock = ConvLSTM
         else:
             RecurrentBlock = ConvGRU
-        self.recurrent_block = RecurrentBlock(input_size=in_channels, hidden_size=out_channels, kernel_size=kernel_size)
+        self.recurrent_block = RecurrentBlock(
+            input_size=in_channels, hidden_size=out_channels, kernel_size=kernel_size
+        )
 
     def forward(self, x, prev_state):
         state = self.recurrent_block(x, prev_state)
-        x = state[0] if self.recurrent_block_type == 'convlstm' else state
-        x = f.interpolate(x, scale_factor=0.5, mode='bilinear', align_corners=False)
+        x = state[0] if self.recurrent_block_type == "convlstm" else state
+        x = f.interpolate(x, scale_factor=0.5, mode="bilinear", align_corners=False)
         return self.activation(x), state
 
 
@@ -141,28 +204,37 @@ class DownsampleRecurrentConvLayer(nn.Module):
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, downsample=None, norm=None):
         super(ResidualBlock, self).__init__()
-        bias = False if norm == 'BN' else True
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=bias)
+        bias = False if norm == "BN" else True
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=bias,
+        )
         self.norm = norm
-        if norm == 'BN':
+        if norm == "BN":
             self.bn1 = nn.BatchNorm2d(out_channels)
             self.bn2 = nn.BatchNorm2d(out_channels)
-        elif norm == 'IN':
+        elif norm == "IN":
             self.bn1 = nn.InstanceNorm2d(out_channels)
             self.bn2 = nn.InstanceNorm2d(out_channels)
 
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
+        self.conv2 = nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=bias
+        )
         self.downsample = downsample
 
     def forward(self, x):
         residual = x
         out = self.conv1(x)
-        if self.norm in ['BN', 'IN']:
+        if self.norm in ["BN", "IN"]:
             out = self.bn1(out)
         out = self.relu(out)
         out = self.conv2(out)
-        if self.norm in ['BN', 'IN']:
+        if self.norm in ["BN", "IN"]:
             out = self.bn2(out)
 
         if self.downsample:
@@ -174,7 +246,7 @@ class ResidualBlock(nn.Module):
 
 
 class ConvLSTM(nn.Module):
-    """Adapted from: https://github.com/Atcold/pytorch-CortexNet/blob/master/model/ConvLSTMCell.py """
+    """Adapted from: https://github.com/Atcold/pytorch-CortexNet/blob/master/model/ConvLSTMCell.py"""
 
     def __init__(self, input_size, hidden_size, kernel_size):
         super(ConvLSTM, self).__init__()
@@ -186,7 +258,9 @@ class ConvLSTM(nn.Module):
         # cache a tensor filled with zeros to avoid reallocating memory at each inference step if --no-recurrent is enabled
         self.zero_tensors = {}
 
-        self.Gates = nn.Conv2d(input_size + hidden_size, 4 * hidden_size, kernel_size, padding=pad)
+        self.Gates = nn.Conv2d(
+            input_size + hidden_size, 4 * hidden_size, kernel_size, padding=pad
+        )
 
     def forward(self, input_, prev_state=None):
 
@@ -203,7 +277,7 @@ class ConvLSTM(nn.Module):
                 # allocate a tensor with size `spatial_size`, filled with zero (if it has not been allocated already)
                 self.zero_tensors[state_size] = (
                     torch.zeros(state_size).to(input_.device),
-                    torch.zeros(state_size).to(input_.device)
+                    torch.zeros(state_size).to(input_.device),
                 )
 
             prev_state = self.zero_tensors[tuple(state_size)]
@@ -243,16 +317,22 @@ class ConvGRU(nn.Module):
         padding = kernel_size // 2
         self.input_size = input_size
         self.hidden_size = hidden_size
-        self.reset_gate = nn.Conv2d(input_size + hidden_size, hidden_size, kernel_size, padding=padding)
-        self.update_gate = nn.Conv2d(input_size + hidden_size, hidden_size, kernel_size, padding=padding)
-        self.out_gate = nn.Conv2d(input_size + hidden_size, hidden_size, kernel_size, padding=padding)
+        self.reset_gate = nn.Conv2d(
+            input_size + hidden_size, hidden_size, kernel_size, padding=padding
+        )
+        self.update_gate = nn.Conv2d(
+            input_size + hidden_size, hidden_size, kernel_size, padding=padding
+        )
+        self.out_gate = nn.Conv2d(
+            input_size + hidden_size, hidden_size, kernel_size, padding=padding
+        )
 
         init.orthogonal_(self.reset_gate.weight)
         init.orthogonal_(self.update_gate.weight)
         init.orthogonal_(self.out_gate.weight)
-        init.constant_(self.reset_gate.bias, 0.)
-        init.constant_(self.update_gate.bias, 0.)
-        init.constant_(self.out_gate.bias, 0.)
+        init.constant_(self.reset_gate.bias, 0.0)
+        init.constant_(self.update_gate.bias, 0.0)
+        init.constant_(self.out_gate.bias, 0.0)
 
     def forward(self, input_, prev_state):
 
@@ -269,7 +349,9 @@ class ConvGRU(nn.Module):
         stacked_inputs = torch.cat([input_, prev_state], dim=1)
         update = torch.sigmoid(self.update_gate(stacked_inputs))
         reset = torch.sigmoid(self.reset_gate(stacked_inputs))
-        out_inputs = torch.tanh(self.out_gate(torch.cat([input_, prev_state * reset], dim=1)))
+        out_inputs = torch.tanh(
+            self.out_gate(torch.cat([input_, prev_state * reset], dim=1))
+        )
         new_state = prev_state * (1 - update) + out_inputs * update
 
         return new_state
