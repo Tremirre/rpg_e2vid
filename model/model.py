@@ -73,7 +73,8 @@ class E2VID(BaseE2VID):
         :param event_tensor: N x num_bins x H x W
         :return: a predicted image of size N x 1 x H x W, taking values in [0,1].
         """
-        return self.unet.forward(event_tensor), None
+        res = self.unet.forward(event_tensor)
+        return res, None
 
 
 class E2VIDRecurrent(BaseE2VID):

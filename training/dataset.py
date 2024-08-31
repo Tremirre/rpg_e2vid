@@ -1,4 +1,5 @@
 import typing
+import logging
 import pathlib
 import dataclasses
 import collections
@@ -10,6 +11,8 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
 Transform = typing.Callable[[np.ndarray], np.ndarray | torch.Tensor]
+
+logger = logging.getLogger(__name__)
 
 
 class FileCache:
@@ -50,6 +53,7 @@ class D3Dataset(Dataset):
         self.file_batch_size = file_batch_size
         self.cache = FileCache(cache_size)
         if preload:
+            logger.info("Preloading dataset")
             for file_idx in range(len(self.batch_files)):
                 if file_idx >= cache_size:
                     break
@@ -57,6 +61,7 @@ class D3Dataset(Dataset):
 
     def load_file(self, file_idx: int) -> dict[str, np.ndarray]:
         batch_file = self.batch_files[file_idx]
+        logger.info(f"Loading file {batch_file}")
         batch = np.load(batch_file)
         b_events = batch["polarity_data"].astype(np.float32)
         b_images = batch["frame_data"].astype(np.float32) / 255.0
@@ -66,13 +71,15 @@ class D3Dataset(Dataset):
         return len(self.batch_files) * self.file_batch_size
 
     def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
+        logger.debug(f"Getting item {idx}")
         file_idx = idx // self.file_batch_size
-        self.cache = {}
         if file_idx not in self.cache:
             batch = self.load_file(file_idx)
             self.cache[file_idx] = batch
+        batch = self.cache[file_idx]
 
         idx = idx % self.file_batch_size
+        logger.debug(f"Getting item {idx} from file {file_idx}")
         events = batch["polarity_data"][idx]
         image = batch["frame_data"][idx][np.newaxis, ...]
 
@@ -100,10 +107,13 @@ class Loaders:
         num_workers: int = 1,
         cache_size: int = 100,
         preload: bool = False,
+        drop_percentage: float = 0.0,
     ):
         batch_files = list(path.glob("*.npz"))
-        # drop 90%
-        batch_files = random.sample(batch_files, int(len(batch_files) * 0.1))
+        if drop_percentage > 0:
+            batch_files = random.sample(
+                batch_files, int(len(batch_files) * (1 - drop_percentage))
+            )
         random.shuffle(batch_files)
         total = len(batch_files)
         train_end = int(total * percentage[0])
