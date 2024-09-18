@@ -17,7 +17,11 @@ class History:
         output_dir: pathlib.Path,
     ) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
-        self.run_idx = len(list(output_dir.glob("*")))
+        runs = [int(name.name.split("_")[0]) for name in output_dir.glob("*")]
+        latest_run = 0
+        if runs:
+            latest_run = max(runs)
+        self.run_idx = latest_run + 1
         self.model_name = model_name
         self._output_dir = output_dir
         self.history = []
