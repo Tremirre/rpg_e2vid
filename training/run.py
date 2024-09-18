@@ -19,13 +19,12 @@ class Runner:
         self,
         model: torch.nn.Module,
         optimizer: Optimizer,
-        criterions: tuple[torch.nn.Module, ...],
+        loss_config: dict[str, tuple[torch.nn.Module, float]],
         history: History,
     ) -> None:
         self.model = model
         self.optimizer = optimizer
-        assert len(criterions) > 0, "At least one criterion is required"
-        self.criterions = criterions
+        self.loss_config = loss_config
         self.history = history
 
     def train(
@@ -36,46 +35,67 @@ class Runner:
     ) -> None:
         for epoch in range(epochs):
             start_time = time.time()
-            train_loss = self._train_epoch(train_loader)
-            val_loss = self._val_epoch(val_loader)
+            train_losses = self._train_epoch(train_loader)
+            val_losses = self._val_epoch(val_loader)
             self.history.add_entry(
-                epoch, train_loss, val_loss, time.time() - start_time
+                epoch, train_losses, val_losses, time.time() - start_time
             )
-            print(
-                f"Epoch {epoch} | Train Loss {train_loss} | Val Loss {val_loss} | Time {time.time() - start_time}"
-            )
+            print(f"\n=== Epoch {epoch} ===\n")
+            print(f"Time: {time.time() - start_time:.2f}")
+            for name in self.loss_config:
+                print(
+                    f"{name} - train: {train_losses[name]:.4f} | val: {val_losses[name]:.4f}"
+                )
+            print()
             self._on_epoch_end(epoch, val_loader)
 
-    def _train_epoch(self, train_loader: torch.utils.data.DataLoader) -> float:
+    def _train_epoch(
+        self, train_loader: torch.utils.data.DataLoader
+    ) -> dict[str, float]:
         self.model.train()
-        total_loss = 0
+        total_epoch_loss = 0
+        individiual_losses = {name: 0 for name in self.loss_config}
         pbar = tqdm.tqdm(train_loader, desc="Training", total=len(train_loader))
         for i, (events, images) in enumerate(pbar):
             self.optimizer.zero_grad()
             output = self.model(events)[0]
-
-            loss = 0
-            for criterion in self.criterions:
-                loss += criterion(output, images)
-            loss.backward()
+            losses = {
+                name: criterion(output, images) * weight
+                for name, (criterion, weight) in self.loss_config.items()
+            }
+            total_loss = sum(losses.values())
+            total_loss.backward()
             self.optimizer.step()
-            total_loss += loss.item()
-            pbar.set_postfix({"train_loss": total_loss / (i + 1)})
-        return total_loss / len(train_loader)
+            total_epoch_loss += total_loss.item()
+            for name, loss in losses.items():
+                individiual_losses[name] += loss.item()
+            pbar.set_postfix({"train_total_loss": total_epoch_loss / (i + 1)})
+        individiual_losses = {
+            name: loss / len(train_loader) for name, loss in individiual_losses.items()
+        }
+        return individiual_losses
 
-    def _val_epoch(self, val_loader: torch.utils.data.DataLoader) -> float:
+    def _val_epoch(self, val_loader: torch.utils.data.DataLoader) -> dict[str, float]:
         self.model.eval()
-        total_loss = 0
+        total_epoch_loss = 0
+        individiual_losses = {name: 0 for name in self.loss_config}
         with torch.no_grad():
             pbar = tqdm.tqdm(val_loader, desc="Validation", total=len(val_loader))
             for i, (events, images) in enumerate(pbar):
                 output = self.model(events)[0]
-                loss = 0
-                for criterion in self.criterions:
-                    loss += criterion(output, images)
-                total_loss += loss.item()
-                pbar.set_postfix({"val_loss": total_loss / (i + 1)})
-        return total_loss / len(val_loader)
+                losses = {
+                    name: criterion(output, images) * weight
+                    for name, (criterion, weight) in self.loss_config.items()
+                }
+                total_loss = sum(losses.values())
+                total_epoch_loss += total_loss.item()
+                for name, loss in losses.items():
+                    individiual_losses[name] += loss.item()
+                pbar.set_postfix({"val_total_loss": total_epoch_loss / (i + 1)})
+        individiual_losses = {
+            name: loss / len(val_loader) for name, loss in individiual_losses.items()
+        }
+        return individiual_losses
 
     def _on_epoch_end(
         self, epoch: int, val_loader: torch.utils.data.DataLoader
