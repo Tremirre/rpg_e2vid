@@ -1,18 +1,19 @@
-from .util import robust_min, robust_max
-from .path_utils import ensure_dir
-from .timers import Timer, CudaTimer
-from .loading_utils import get_device
-from os.path import join
-from math import ceil, floor
-from torch.nn import ReflectionPad2d
-import numpy as np
-import torch
-import cv2
-from collections import deque
 import atexit
+from collections import deque
+from math import ceil, floor, sqrt
+from os.path import join
+
+import cv2
+import numpy as np
 import scipy.stats as st
+import torch
 import torch.nn.functional as F
-from math import sqrt
+from torch.nn import ReflectionPad2d
+
+from .loading_utils import get_device
+from .path_utils import ensure_dir
+from .timers import CudaTimer, Timer
+from .util import robust_max, robust_min
 
 
 def make_event_preview(events, mode="red-blue", num_bins_to_show=-1):
@@ -538,12 +539,12 @@ def events_to_voxel_grid(events, num_bins, width, height):
 
     events[:, 0] = (num_bins - 1) * (events[:, 0] - first_stamp) / deltaT
     ts = events[:, 0]
-    xs = events[:, 1].astype(np.int)
-    ys = events[:, 2].astype(np.int)
+    xs = events[:, 1].astype(int)
+    ys = events[:, 2].astype(int)
     pols = events[:, 3]
     pols[pols == 0] = -1  # polarity should be +1 / -1
 
-    tis = ts.astype(np.int)
+    tis = ts.astype(int)
     dts = ts - tis
     vals_left = pols * (1.0 - dts)
     vals_right = pols * dts
