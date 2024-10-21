@@ -1,11 +1,11 @@
 import torch
 
-from ..model import *
+from ..model.model import *
 
 
 def load_model(path_to_model):
-    print("Loading model {}...".format(path_to_model))
-    raw_model = torch.load(path_to_model)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    raw_model = torch.load(path_to_model, map_location=device)
     arch = raw_model["arch"]
 
     try:
@@ -27,7 +27,4 @@ def get_device(use_gpu):
         device = torch.device("cuda:0")
     else:
         device = torch.device("cpu")
-    print("Device:", device)
-
-    return device
     return device
