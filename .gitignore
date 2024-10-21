@@ -2,3 +2,4 @@
 .venv/
 history/
 temp/
+mypy_cache/
