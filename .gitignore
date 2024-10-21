@@ -3,3 +3,5 @@
 history/
 temp/
 mypy_cache/
+dist/
+*.egg-info/

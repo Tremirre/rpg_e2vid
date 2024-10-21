@@ -1,0 +1,12 @@
+[project]
+name ="rpg_e2vid"
+version = "0.1.0"
+description = "A simple wrapper over the slightly adjusted E2VID model for the RPG task."
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+"Original E2VID repo" = "https://github.com/uzh-rpg/rpg_e2vid"
+"Original E2VID paper" = "https://rpg.ifi.uzh.ch/docs/TPAMI19_Rebecq.pdf"
