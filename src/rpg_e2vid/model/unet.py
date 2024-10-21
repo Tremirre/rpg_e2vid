@@ -1,15 +1,12 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as f
-from torch.nn import init
+
 from .submodules import (
     ConvLayer,
-    UpsampleConvLayer,
-    TransposedConvLayer,
     RecurrentConvLayer,
     ResidualBlock,
-    ConvLSTM,
-    ConvGRU,
+    TransposedConvLayer,
+    UpsampleConvLayer,
 )
 
 
@@ -103,9 +100,11 @@ class BaseUNet(nn.Module):
 
     def build_prediction_layer(self):
         self.pred = ConvLayer(
-            self.base_num_channels
-            if self.skip_type == "sum"
-            else 2 * self.base_num_channels,
+            (
+                self.base_num_channels
+                if self.skip_type == "sum"
+                else 2 * self.base_num_channels
+            ),
             self.num_output_channels,
             1,
             activation=None,
@@ -291,4 +290,5 @@ class UNetRecurrent(BaseUNet):
         # tail
         img = self.activation(self.pred(self.apply_skip_connection(x, head)))
 
+        return img, states
         return img, states

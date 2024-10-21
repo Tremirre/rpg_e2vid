@@ -1,5 +1,6 @@
 import torch
-from model.model import *
+
+from ..model import *
 
 
 def load_model(path_to_model):
@@ -28,4 +29,5 @@ def get_device(use_gpu):
         device = torch.device("cpu")
     print("Device:", device)
 
+    return device
     return device

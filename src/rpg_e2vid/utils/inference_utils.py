@@ -1,6 +1,6 @@
 import atexit
 from collections import deque
-from math import ceil, floor, sqrt
+from math import ceil, floor
 from os.path import join
 
 import cv2
@@ -10,10 +10,8 @@ import torch
 import torch.nn.functional as F
 from torch.nn import ReflectionPad2d
 
-from .loading_utils import get_device
 from .path_utils import ensure_dir
 from .timers import CudaTimer, Timer
-from .util import robust_max, robust_min
 
 
 def make_event_preview(events, mode="red-blue", num_bins_to_show=-1):

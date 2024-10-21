@@ -1,15 +1,5 @@
-from base import BaseModel
-import torch.nn as nn
-import torch
-from model.unet import UNet, UNetRecurrent
-from os.path import join
-from model.submodules import (
-    ConvLSTM,
-    ResidualBlock,
-    ConvLayer,
-    UpsampleConvLayer,
-    TransposedConvLayer,
-)
+from ..base import BaseModel
+from .unet import UNet, UNetRecurrent
 
 
 class BaseE2VID(BaseModel):
@@ -110,4 +100,5 @@ class E2VIDRecurrent(BaseE2VID):
         :return: reconstructed image, taking values in [0,1].
         """
         img_pred, states = self.unetrecurrent.forward(event_tensor, prev_states)
+        return img_pred, states
         return img_pred, states
