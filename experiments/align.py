@@ -7,6 +7,7 @@ if "." not in sys.path:
 
 import argparse
 import dataclasses
+import json
 import logging
 import pathlib
 
@@ -22,6 +23,14 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s"
 )
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+PRETRAINED_DIR = pathlib.Path("pretrained")
+META_DIR = pathlib.Path("experiments/meta")
+VIDEOS_DIR = pathlib.Path("experiments/videos")
+IMAGES_DIR = pathlib.Path("experiments/images")
+META_DIR.mkdir(exist_ok=True)
+VIDEOS_DIR.mkdir(exist_ok=True)
+IMAGES_DIR.mkdir(exist_ok=True)
 
 
 def load_model(path_to_model: str) -> torch.nn.Module:
@@ -255,6 +264,28 @@ class MatchResult:
     rec_frames: np.ndarray
     measurement: ORBMeasurement
 
+    @property
+    def best_idx(self) -> int:
+        return np.argmax(self.measurement.matches)
+
+    def resolve_homography(self) -> np.ndarray:
+        kp1 = self.measurement.kp_ref
+        kp2 = self.measurement.kp_checked[self.best_idx]
+        matches = cv2.BFMatcher().knnMatch(
+            self.measurement.des_ref, self.measurement.des_checked[self.best_idx], k=2
+        )
+        good = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good.append(m)
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        H, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        return H
+
+    def resolve_temporal_offset(self, window_length: int) -> int:
+        return int(self.best_idx * window_length)
+
 
 def match_events_with_frame(
     events: np.ndarray,
@@ -302,7 +333,7 @@ def match_events_with_frame(
 
 if __name__ == "__main__":
     args = Args.from_cli()
-    model = load_model("./pretrained/E2VID_lightweight.pth.tar").to(DEVICE)
+    model = load_model(PRETRAINED_DIR / "E2VID_lightweight.pth.tar").to(DEVICE)
     logging.info(f"Loading events from {args.input_events}")
     events = EventsData.from_path(args.input_events)
     first_timestamp = events.array[0, 0]
@@ -312,11 +343,11 @@ if __name__ == "__main__":
     video = read_video(args.input_video)
     logging.info(f"Resizing video to {events.width}x{events.height}")
     video = crop_to_size(video, events.width, events.height)
-
     _, ts_counts = np.unique(events.array[:, 0], return_counts=True)
 
     logging.info("Matching events with frame")
     checked_time_ms = 3000
+    window_length = 30
     checked_counts = ts_counts[:checked_time_ms]
     checked_events = events.array[: checked_counts.sum()]
 
@@ -326,8 +357,28 @@ if __name__ == "__main__":
         video[0],
         events.width,
         events.height,
-        window_length=35,
+        window_length=window_length,
         model=model,
     )
+    logging.info(f"Best match index: {result.best_idx}")
+    logging.info(f"Best match homography: {result.resolve_homography()}")
+    logging.info(
+        f"Best match temporal offset: {result.resolve_temporal_offset(window_length)}ms"
+    )
+
+    out_img = IMAGES_DIR / f"matches-{window_length}-{args.input_video.stem}.png"
+    logging.info(f"Saving matches by frame to {out_img}")
     plt.plot(result.measurement.matches)
-    plt.show()
+    plt.savefig(out_img)
+
+    out_meta = META_DIR / f"match-{args.input_video.stem}.json"
+    logging.info(f"Saving metadata to {out_meta}")
+
+    with open(out_meta, "w") as f:
+        json.dump(
+            {
+                "homography": result.resolve_homography().astype(float).tolist(),
+                "temporal_offset": result.resolve_temporal_offset(window_length),
+            },
+            f,
+        )
